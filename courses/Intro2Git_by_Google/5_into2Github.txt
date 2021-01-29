@@ -1,0 +1,30 @@
+
+we can clone a repo from github using the URL.
+we will be asked for a username and password.
+
+then we can update the changes done locally to the gitHub by using the Push
+
+---->> $ git push
+
+then to update the local cloned repo i.e in sync with github we can use Pull
+
+---->$ git pull
+
+
+for all these operations we need to input the username and password.
+
+Hence to avoid these we can set a SSH-KEY pair a global key in the github profile , so that when we do anything , it recognises our computer.
+
+OR
+
+Another way is to cache the username and password in the git so that we did not need to fill it manually everytime.  but it is of a timelimit. usually 15 min.
+Hence git does this by using a Credential Helper which cache the username and password.
+
+----> $ git --config credential.helper cache
+
+To Set the timelimit of the data cache use
+
+---> $ git --config credential.helper 'cache --timeout=<time in sec>'
+
+example:
+---> $ git --config credential.helper 'cache --timeout=3600'   // seting timelimit for 1 hrs.

@@ -1,0 +1,39 @@
+Undoing Things:
+
+After editing a file we can  udo the changes before statging by a 
+
+----> $ git checkout <filename>  // it will undo the changes
+
+if we staged the changes and then we want to udo the changes 
+
+---> $ git restore <file name> 
+or
+----> $ git reset <filename>   //to undo all changes
+
+or 
+
+-->> $ git reset -p <filename>    // to undo the changes for the specific changed line of the codes.
+
+************* amending changes ****************
+
+It is used to alter the previous commit
+eg ; let say you need to commit 2 file and u commit only 1 file but the commit mesaage was for both the file hence we can then add the remaining file and then use --amend flag to alter the previous commit
+
+-------->>$ git commit --amend
+
+Hnece the prevois commit is replaced by the this new commit and the previos commit wont be shown in git log.
+
+Therefore never use this for public repo
+
+
+****************** ROLL back ***************
+
+It is used to undo change done in the previous commit ,it wont delete the previous commit it ,, instead it will create a file with removing the changes made in previous commit and then again commiting these changes.
+
+
+---0---------> $ git revert HEAD  // this will revert to to the latest commit
+
+To revert to the older commit we need to specify the  40 letters commit id 
+
+0------------->$ git revert <commit id>  //only few initial of commit id can also work until unless it matches with the further letters.
+

@@ -1,0 +1,31 @@
+When using a remote repo many colaborator work with same repo 
+hence when we need to push our changes to the the remote repo it may lead to CONFLICT if someones already pushed some changes to that repo which is conflicting.
+
+Hence we will get an error if we try to push our changes leading to the conflict.
+
+Hence , In this case the merge is not fast forward  we need to do Three waymerge.
+
+*********to resolve this conflict ************
+
+1:: Pull the remote repo 1st.
+
+---> $ git pull         
+
+2:: now see the log  of the remote repo to see what has been updated by the other colaborator(person working on same project).
+
+ ---> $ git log -p origin/master
+
+3:: also understand the conflict by observing the graphical view
+
+---> $ git log --graph --oneline --all   // it will show a nice representation of the branches and every thing
+
+4:: After understanding the conflict and the updation done
+ open and edit all the conflict files one by one 
+
+---> vi filename  // now we can see the changes made by other person and by you so edit accordingly and then COMMIT the changes.
+
+5:: Now when the conflicts are solved , so Its time to Push / update our changes to the remote repo   hance push the changes.
+
+---------> $ git push
+
+*******And its done ***********

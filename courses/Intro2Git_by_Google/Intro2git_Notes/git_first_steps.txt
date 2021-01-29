@@ -1,0 +1,37 @@
+ as we know the VCS tracks who made the changes to the file , Hence therfore we need to tell GIT who we are
+Hence we use git config cmd to set user email and uaer name as shown below
+
+---->> $ git config --global user.email "rishapsingh77@gmail.com"
+---->> $ git config --global user.name "rishap777"
+Here the --global flag means the that git will always use this info for anything we do on this machine.
+
+If we want to override this with a different name then , run the command without --global option ****WHEN WE ARE IN THAT PROJECT***********
+Hence for that project only the user name will be changed.
+
+NOw to START we git 
+
+we  can create a new empty gir repository or clone an existing repository.
+
+---->>$ git init   // a git repsitories will be created in the current directory with various files used by the GIT itself. 
+We should use the git commands to to modify these files and not touching/changing it directly.
+eg. a config ,brances dir etc.
+
+---->>$ git status   //to get some info abt the current working tree and the pending changes.
+
+first we need to copy the desired files into the working tree
+now if we use above cmd we can see the pending changes etc.
+
+the files which is marked as to be committed , means the change is currently into the staging area.
+
+To get it committed use
+
+---->$ git commit file_v1.c  or $git commit
+ after this cmd a default editor is opened  in which we need to type the commit message  /// there is various types of messages refer later docs for this.
+ 
+ after commiting the file is tracked by the git
+  
+
+
+
+ 
+

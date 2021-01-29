@@ -1,0 +1,33 @@
+suppose a group is working on a same project and the work has been divide but collaborated by a single repo managed by the lead.
+
+then we can push our changes/ work to that repo , and other can see it
+and as everyone needs to work with a separate branch of that repo
+
+everyone can see our pushed work and if they find something wrong or incomplete or you find something wrong or incomplete then we can comment or we can edit the changes required and then ask then to update that in their branch by sending them a pull request.
+
+----------------
+let say we receive a comment to fix a simple mistake etc.
+
+hence after fixing we will commit the changes hence it will then show a 2 commits for same file ,hence it becomes tedious when we merge and for the other colaborator to read the log 
+
+
+
+Hence we can rebase the commit into a one
+
+for that we will use a interactive rebase by 
+
+-----> $ git rebase -i master  
+
+a file is opened with all the commits
+hence now to need to set command for each commit to say what we need to do with that commit.
+All the commands our already present below as a help.
+eg. pick---> to use add that commit
+    squash,fixup etc.
+
+after saving the above file we will get a file to edit based on the command we used on previous file . Hence edit it accordingly and then save it 
+
+hence the rebase is done .
+
+Now we just need to push our changes 
+for a force push our changes
+--->$ git push -f  

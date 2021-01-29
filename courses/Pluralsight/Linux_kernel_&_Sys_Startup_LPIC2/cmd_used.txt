@@ -1,0 +1,50 @@
+
+->> $ uname              /// various option to get the details
+
+->> $ cat /boot/config-$(uname -v)      // here the uname -v get excecuted and the result of it is used by the cat command.
+                                        //this cmd will list all the configuration used by the kernel at startup.             
+-->> $ cat /proc/cmdline        // it list the commandline used while system bootup , usaully define in the grub , but while booting up we can pass some other cmd line pararmeter , it it it gives the latest cmdline parameters passed while system boot up
+
+-->> cat /proc/version
+
+
+*********************SECtion 2 KERNEL BASISC****************************************************
+ To read the initial ram beased filesystem in centos  , it is initranfs   for ubuntu ->> uses initrd i.e initial ram disk.
+
+we can find this file inside the boot dir
+
+copy this file to some location. for permanent  or to a /tmp dir for temperary usage 
+
+-->> >>sudo cp /boot/initrd.img-$(uname -r) /tmp/
+
+-->> cd /tmp
+
+->>>>mv initrd.img-5.4.0-28-generic initrd.img-5.4.0-28-generic.gz   //this is to change the extension of the initrd file. if the extension was gzip.
+
+but we need to check the actual extension 1st,, by using
+
+--->> file initrd.img-5.4.0-28-generic 
+--o/p-->initrd.img-5.4.0-28-generic: ASCII cpio archive (SVR4 with no CRC)
+in this case no need to do the above mv cmd.
+
+Directly use the CPIO archive tool
+--> mkdir init
+--> cd init
+--->sudo cpio -id < ../initrd.img-5.4.0-28-generic 
+
+then do ---> ls             // to see the files system
+
+           or for ubuntiu we can directly mount this file system in sysfs to view it
+
+--> >>mount -t sysfs initrd.img-5.4.0-28-generic /mnt/
+--> cd /mnt
+--> ls 
+--> umount /mnt
+
+
+
+
+
+
+
+ 

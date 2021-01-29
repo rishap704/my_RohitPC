@@ -1,0 +1,48 @@
+here we will see how to manage and keep udated with the remote repo.
+
+As when we pull a repo from a remote repo we get a copy hence git track all the changes and even tell us whether our local repo is upto date with the remote repo as remote repo can be upadte i.e changes can be pushed by multiple users working on a same project.
+
+
+----> $ git remote -v  //this will show us the fetch and push history withurls to the remote repo.
+
+
+
+---> $ git remote show origin    // this show some more details about the remote and local push ,pull ,changes etc.
+
+
+---->git branch -r   //show the remote repo and the local branch
+
+
+when somthing get updated/commited in the remote repo that changes are notsynced with our local repo, to do this
+
+
+to check whether our local is upto date or not
+
+--->$ git remote show origin   // this will tell us whether we are updated or not
+
+if local is out date  use::
+
+---> $ git fetch    // it will fetch the remote updates i.e commit logs etc , but it doesn't merge
+
+
+hence we can see the log now 
+
+---> $ git log origin/master   /// this will show use the head pointers of the local and the remote repo  and we can crealy see that the local repo Head lags behind pointing to the latest local commit.
+
+
+we can also use ---> $ git status   / to see the info
+
+Now to make the local repo sync with the remote repo we need 
+merge or pull again
+
+----> $ git merge origin/master  // here the origin/master is the remote repo
+
+or 
+
+---> $ git pull     
+
+now the local and remote are sync we can check by the ---> git log
+
+
+ 
+ 

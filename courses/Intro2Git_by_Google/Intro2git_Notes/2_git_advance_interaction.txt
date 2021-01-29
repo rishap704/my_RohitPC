@@ -1,0 +1,53 @@
+------>> $ git log -p  // this used to show the lines changes in the file in detail , the o/p is is created using the diff cmd internally.
+Hence we can observe the changes clearly and throughly.
+
+---->> $ git log -p <filename> // to get the changes made specific to that filename only.
+
+----->> $ git show <commit id>  // to display only the changes for the specific commit id , commit id can be get from the $ git log command.
+
+----->> $ git log --stat   // this command only the shows the stats for ecah commit , not the actual chages line by line.
+
+---->> $ git log -[num]  // to show the level of the log  num== 1 to N.
+example---> $ git log -2   // it will show only the last two logs/commits.
+
+Now when we add/ modify a file after a testing being done but we find a bug befoore commiting hence we can use the -----> git diff   to see the changes being done to each file. FOR SPECIFIC file use --> $git diff <file name>
+
+or we can also do this by 
+
+----->$ git add -p   // this will show the diff o/p and also ask us whether to stage these changes or not  ,, hence we can review it.
+
+if we staged this changes then we wont see the ----> $ git diff   o/p as the chsnge has been staged.
+Hnece to see this diff o/p  use this
+
+----> $ git diff --stagged     // it will show the changes in the stagged area
+
+if we are sure about the change then we can commit the changes.
+
+
+********* To delete a file from repository *******
+---->$ git rm <file name>          // 
+
+and then commit this delete by adding a delete message.
+
+************ to rename the file *********
+-----> $ git mv <file>  <new name> 
+and then commit this rename by adding a rename message.
+
+
+*********** To ingnore the files to be added ***************
+some time a script run in th repo may create files which we dont want to be tracked by the git.. for this ,
+
+we need to add the following file names into the  >>>>> .gitignore  file by 
+
+---------->> $ echo .Filename > .gitignore
+then
+------>> git add .gitignore    
+and then 
+-----> git commit -m 'messages'
+
+
+
+
+ 
+
+

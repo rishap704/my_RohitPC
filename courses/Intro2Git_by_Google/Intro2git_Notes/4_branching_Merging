@@ -1,0 +1,33 @@
+We use branches so that we can test and modify the master branch easily without affecting it and after succesful testing of the code we can then merge the brach with the Master Branch.   
+
+********To create a branch **************
+
+--->$ git branch <Branch Name>   // just to create a new branch
+
+still we are pointing to the master branch 
+hence to switch to the new Branch 
+
+--->$ git checkout <Branch Name>  // to switch to the latest created branch 
+
+Above to cmd work can be done by a single cmd
+
+---->$ git checkout -b <New Branch name> 
+
+After this we can do --> add and ---> commit  this will do the following in this new branch only.
+
+************* to delete a branch****************
+
+-----> git branch -d <Branch name>   // this will ask  for confirmation if we have any file in this branch, and its not merged. 
+ We cannot delete a branch IF OUR Head is pointing to that branch only 
+Hence we need to be in other branch.
+
+
+************* To merge a branch************ 
+
+-------->> $ git merge <Branch Name>  // to merge a branch to which the Head is currently pointing, Hence to merge a new brach to a master branch we should be pointing to the Master Branch.
+
+
+----->$ git log --graph --oneline     // to display the log in a good way.
+
+
+----->> $ git merge --abort     // to abort and undo the change occured inthe current branch. 

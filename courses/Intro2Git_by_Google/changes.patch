@@ -1,0 +1,18 @@
+--- file_v2.c	2020-05-03 13:49:46.723006863 +0530
++++ file_v1.c	2020-05-03 13:41:00.105597722 +0530
+@@ -3,8 +3,13 @@
+ int main()
+ {
+     int num=3;
+-    scanf("%d",&num)
+ 
+-    (num%2)==0?printf("the num %d is odd\n\r",num):printf("the num %d is odd\n\r",num);
++    if(num%2 == 0){
++        printf("the num %d is odd\n\r",num);
++    }
++    else
++    {
++        printf("the num %d is odd\n\r",num);
++    }
+     return 0;
+ }

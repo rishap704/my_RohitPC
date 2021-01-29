@@ -1,0 +1,40 @@
+diff is a utility to check the difference between two files
+
+-->$ diff file1 file2
+
+it finds and highlight out the folling
+--> changes made     'c'
+--->  addition done   'a'
+--->  deleted         'd'
+
+and many more
+
+-->$ diff -u file1 file2  // this shows o/p in other way like - for the line removed & + for line added .
+
+we also have other tools like
+
+---> wdiff   // to highlight the words that have changed
+
+//below are some graphical tools for the same 
+--->meld  
+-->kDiff3
+--->vimdiff
+
+
+**Creating a diff file ********************************************************
+These file are created by the modifier and send to the user to apply the changes .
+
+----> diff -u old_file  new_file  > change.diff
+
+now this .diff file can be send to the used
+
+--> 1st option is to apply the changes manully. // but it can lead to the human error and what if there are many files.
+
+Hence, Here comes the patch  
+
+patch help us to apply the changes defined in the .diff file to the existing file which is to be changed/patched.
+
+----> $ patch old_file < change.diff             // this will aplly the patch
+
+------>> learn more about patching  many files at once by creating the appropriate diff files.
+
