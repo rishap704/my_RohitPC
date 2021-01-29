@@ -1,0 +1,803 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under Ultimate Liberty license
+  * SLA0044, the "License"; You may not use this file except in compliance with
+  * the License. You may obtain a copy of the License at:
+  *                             www.st.com/SLA0044
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "cmsis_os.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+typedef struct
+{
+	int8_t x;
+	int8_t y;
+	int8_t z;
+}LIS3DSH_DataRaw;
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+#define _LIS3DHS_CS_ENBALE		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);  //chip select
+#define _LIS3DHS_CS_DISABLE		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+#define WINDOW_UP				1
+#define WINDOW_DOWN				0
+#define WINDOW_OFF				5
+#define LED_ON					7														// send 7 to ON led
+#define LED_OFF					8														// send 8 to ON led
+#define MOTOR_DIR_UP			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+#define MOTOR_DIR_DOWN			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
+
+CAN_HandleTypeDef hcan1;
+
+
+SPI_HandleTypeDef hspi1;
+
+osThreadId airbagTaskHandle;
+osThreadId temp_BattAdcTaskHandle;
+osThreadId windowLightTaskHandle;
+osMutexId airbagMutexHandle;
+osStaticMutexDef_t airbagMutexControlBlock;
+
+/* USER CODE BEGIN PV */
+volatile uint8_t rcvd_msg;
+volatile uint8_t motor_flag=WINDOW_OFF;
+volatile uint8_t led_flag;
+volatile uint16_t Adcval1,Adcval2;
+static LIS3DSH_DataRaw rawData;
+static CAN_RxHeaderTypeDef RxHeader;
+static TaskHandle_t xTaskToNotify = NULL;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_ADC2_Init(void);
+static void MX_CAN1_Init(void);
+static void MX_SPI1_Init(void);
+
+void airbagMethod(void const * argument);
+void adcMethod(void const * argument);
+void window_light_ActuationMethod(void const * argument);
+
+/* USER CODE BEGIN PFP */
+void CAN_Filter_Config(void);
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+  
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_ADC2_Init();
+  MX_CAN1_Init();
+  MX_SPI1_Init();
+  /* USER CODE BEGIN 2 */
+  CAN_Filter_Config();
+
+    if(HAL_CAN_ActivateNotification(&hcan1,CAN_IT_RX_FIFO0_MSG_PENDING)!= HAL_OK)
+    	{
+    			Error_Handler();
+    	}
+  /* USER CODE END 2 */
+  /* Create the mutex(es) */
+  /* definition and creation of airbagMutex */
+  osMutexStaticDef(airbagMutex, &airbagMutexControlBlock);
+  airbagMutexHandle = osMutexCreate(osMutex(airbagMutex));
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of airbagTask */
+  osThreadDef(airbagTask, airbagMethod, osPriorityHigh, 0, 128);
+  airbagTaskHandle = osThreadCreate(osThread(airbagTask), NULL);
+
+  /* definition and creation of temp_BattAdcTask */
+  osThreadDef(temp_BattAdcTask, adcMethod, osPriorityNormal, 0, 128);
+  temp_BattAdcTaskHandle = osThreadCreate(osThread(temp_BattAdcTask), NULL);
+
+  /* definition and creation of windowLightTask */
+  osThreadDef(windowLightTask, window_light_ActuationMethod, osPriorityLow, 0, 128);
+  windowLightTaskHandle = osThreadCreate(osThread(windowLightTask), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
+ 
+  /* We should never get here as control is now taken by the scheduler */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage 
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  /** Initializes the CPU, AHB and APB busses clocks 
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 80;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 7;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Initializes the CPU, AHB and APB busses clocks 
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief ADC2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC2_Init(void)
+{
+
+  /* USER CODE BEGIN ADC2_Init 0 */
+
+  /* USER CODE END ADC2_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC2_Init 1 */
+
+  /* USER CODE END ADC2_Init 1 */
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+  */
+  hadc2.Instance = ADC2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.ScanConvMode = DISABLE;
+  hadc2.Init.ContinuousConvMode = ENABLE;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.NbrOfConversion = 1;
+  hadc2.Init.DMAContinuousRequests = DISABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC2_Init 2 */
+
+  /* USER CODE END ADC2_Init 2 */
+
+}
+
+/**
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CAN1_Init(void)
+{
+
+  /* USER CODE BEGIN CAN1_Init 0 */
+
+  /* USER CODE END CAN1_Init 0 */
+
+  /* USER CODE BEGIN CAN1_Init 1 */
+
+  /* USER CODE END CAN1_Init 1 */
+  hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 4;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_3TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_12TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_7TQ;
+  hcan1.Init.TimeTriggeredMode = DISABLE;
+  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoWakeUp = DISABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.ReceiveFifoLocked = DISABLE;
+  hcan1.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN1_Init 2 */
+
+  /* USER CODE END CAN1_Init 2 */
+
+}
+
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SPI1_chipEnable_GPIO_Port, SPI1_chipEnable_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11|GPIO_PIN_12, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : SPI1_chipEnable_Pin */
+  GPIO_InitStruct.Pin = SPI1_chipEnable_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SPI1_chipEnable_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB11 PB12 */
+  GPIO_InitStruct.Pin = GPIO_PIN_11|GPIO_PIN_12;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PD12 PD13 PD14 PD15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+}
+
+/* USER CODE BEGIN 4 */
+
+void CAN_Filter_Config(void)
+{
+	CAN_FilterTypeDef can1_filter_init;
+
+	can1_filter_init.FilterActivation = ENABLE;
+	can1_filter_init.FilterBank  = 0;
+	can1_filter_init.FilterFIFOAssignment = CAN_RX_FIFO0;
+	can1_filter_init.FilterIdHigh = 0x0000;
+	can1_filter_init.FilterIdLow = 0x0000;
+	can1_filter_init.FilterMaskIdHigh = 0X0000;
+	can1_filter_init.FilterMaskIdLow = 0x0000;
+	can1_filter_init.FilterMode = CAN_FILTERMODE_IDMASK;
+	can1_filter_init.FilterScale = CAN_FILTERSCALE_32BIT;
+
+	if( HAL_CAN_ConfigFilter(&hcan1,&can1_filter_init) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
+}
+
+void CAN1_Tx()
+{
+	CAN_TxHeaderTypeDef TxHeader;
+
+	uint32_t TxMailbox;
+
+	uint8_t message[4];
+
+	TxHeader.DLC = 4;
+	TxHeader.StdId = 0x65D;
+	TxHeader.IDE   = CAN_ID_STD;
+	TxHeader.RTR = CAN_RTR_DATA;
+
+
+	message[0] = (Adcval1 >> 8); // MSB value of ADC1
+	message[1] = (Adcval1); 		//LSB value of ADC1
+
+	message[2] = (Adcval2 >> 8); // MSB value of ADC2
+	message[3] = (Adcval2);    //LSB value of ADC2
+
+
+	//HAL_GPIO_TogglePin(GPIOA,GPIO_PIN_5);
+
+	if( HAL_CAN_AddTxMessage(&hcan1,&TxHeader,message,&TxMailbox) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
+}
+
+static void LIS3DSH_WriteIO(uint8_t reg, uint8_t *dataW, uint8_t size)
+{
+	uint8_t spiReg = reg;
+	//Enable CS
+	_LIS3DHS_CS_ENBALE;
+	//set register value
+	HAL_SPI_Transmit(&hspi1, &spiReg, 1, 10);
+	//Transmit data
+	HAL_SPI_Transmit(&hspi1, dataW, size, 10);
+	//Disable CS
+	_LIS3DHS_CS_DISABLE;
+}
+
+static void LIS3DSH_ReadIO(uint8_t reg, uint8_t *dataR, uint8_t size)
+{
+	uint8_t spiBuf[4];
+	spiBuf[0] = reg | 0x80;  //oring is for read setting
+	//Enable CS
+	_LIS3DHS_CS_ENBALE;
+	//set register value
+	HAL_SPI_Transmit(&hspi1, spiBuf, 1, 10);
+	//Transmit data
+	HAL_SPI_Receive(&hspi1, spiBuf, size, 10);
+	//Disable CS
+	_LIS3DHS_CS_DISABLE;
+
+	for(uint8_t i=0; i<(size&0x3); i++)
+	{
+		dataR[i] = spiBuf[i];
+	}
+}
+
+
+static LIS3DSH_DataRaw LIS3DSH_GetDataRaw(void)
+{
+	uint8_t spiBuf[2];
+	LIS3DSH_DataRaw tempDataRaw;
+	//Read X data
+	LIS3DSH_ReadIO(0x29, spiBuf, 1);
+	tempDataRaw.x = spiBuf[0];			//((spiBuf[1] << 8) +
+
+	//Read Y data
+	LIS3DSH_ReadIO(0x2B, spiBuf, 1);
+	tempDataRaw.y = spiBuf[0]; 			//((spiBuf[1] << 8) +
+
+	//Read Z data
+	LIS3DSH_ReadIO(0x2D, spiBuf, 1);
+	tempDataRaw.z = spiBuf[0];              //((spiBuf[1] << 8) +
+
+	return tempDataRaw;
+
+}
+
+void Motor_Step(void)
+{
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12,GPIO_PIN_SET);
+	HAL_Delay(50);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12,GPIO_PIN_RESET);
+	HAL_Delay(50);
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+  /* Prevent unused argument(s) compilation warning */
+ // UNUSED(hadc);
+  /* NOTE : This function Should not be modified, when the callback is needed,
+            the HAL_ADC_ConvCpltCallback could be implemented in the user file
+   */
+
+	if(hadc->Instance == ADC1 ){
+
+		Adcval1=HAL_ADC_GetValue(&hadc1);
+		//HAL_ADC_Start_IT(&hadc1);
+	}
+	if(hadc->Instance == ADC2) {
+
+		Adcval2=HAL_ADC_GetValue(&hadc2);
+		//HAL_ADC_Start_IT(&hadc2);
+	}
+
+
+
+}
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+
+	if(HAL_CAN_GetRxMessage(hcan,CAN_RX_FIFO0,&RxHeader,&rcvd_msg) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	vTaskNotifyGiveFromISR(xTaskToNotify,NULL);        // &xHigherPriorityTaskWoken
+}
+
+/* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_airbagMethod */
+/**
+  * @brief  Function implementing the airbagTask thread.
+  * @param  argument: Not used 
+  * @retval None
+  */
+/* USER CODE END Header_airbagMethod */
+void airbagMethod(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+	TickType_t xLastWakeTime;
+
+	//LIS3DSH_DataRaw rawData;
+
+	uint8_t spiData=0x67;   // configuration setting for mems for control register 0x20  //setting 100HZ and disabling powerdown mode & enabling all axis
+
+	const TickType_t xPeriod = pdMS_TO_TICKS(5);
+	xLastWakeTime = xTaskGetTickCount();
+	LIS3DSH_WriteIO(0x20, &spiData, 1); // mems configuration setting
+
+  /* Infinite loop */
+  for(;;)
+  {
+
+	  rawData=LIS3DSH_GetDataRaw();
+
+	  if(rawData.x >= 55 || rawData.x <= -55)
+	  {
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, 1);
+	  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
+	  }
+	  vTaskDelayUntil(&xLastWakeTime, xPeriod);
+    //osDelay(1);
+  }
+  /* USER CODE END 5 */ 
+}
+
+/* USER CODE BEGIN Header_adcMethod */
+/**
+* @brief Function implementing the temp_BattAdcTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_adcMethod */
+void adcMethod(void const * argument)
+{
+  /* USER CODE BEGIN adcMethod */
+	TickType_t xLastWakeTime;
+	const TickType_t xPeriod = pdMS_TO_TICKS(5);
+	xLastWakeTime = xTaskGetTickCount();
+
+	if( HAL_CAN_Start(&hcan1) != HAL_OK)
+			{
+				Error_Handler();
+			}
+  /* Infinite loop */
+  for(;;)
+  {
+	  HAL_ADC_Start_IT(&hadc1);  //enable interrupt and start conversion for ADC1
+	  HAL_ADC_Start_IT(&hadc2);  //enable interrupt and start conversion for ADC2
+	  CAN1_Tx();
+	  vTaskDelayUntil(&xLastWakeTime, xPeriod);
+  }
+  /* USER CODE END adcMethod */
+}
+
+/* USER CODE BEGIN Header_window_light_ActuationMethod */
+/**
+* @brief Function implementing the windowLightTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_window_light_ActuationMethod */
+void window_light_ActuationMethod(void const * argument)
+{
+  /* USER CODE BEGIN window_light_ActuationMethod */
+	int motor_steps_count=0;
+	xTaskToNotify = xTaskGetCurrentTaskHandle();		//Store the handle of the calling task.
+  /* Infinite loop */
+
+  for(;;)
+  {
+
+	  ulTaskNotifyTake( pdTRUE,portMAX_DELAY );
+
+	  if(rcvd_msg == WINDOW_UP)
+	  {
+		  MOTOR_DIR_UP;          //setting pinB 11  pin as 0 this is direction pin
+		  for(int i=0;i<15;i++)
+			  Motor_Step();
+	  }
+	  if(rcvd_msg == WINDOW_DOWN)
+	  {
+		  MOTOR_DIR_DOWN;          //setting pinB 11  pin as 1 this is direction pin
+		  for(int i=0;i<15;i++)
+			  Motor_Step();
+	  }
+	  if(rcvd_msg == LED_ON)
+	  {
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+	  }
+	  if(rcvd_msg == LED_OFF)
+	  {
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
+	  }
+osDelay(1);
+    /*
+      if(motor_flag == WINDOW_UP)
+	  {
+		  MOTOR_DIR_UP;          //setting pinB 11  pin as 0 this is direction pin
+		  if(motor_steps_count <= 15)
+		  {
+			  Motor_Step();
+			  motor_steps_count++;
+		  }
+		  else
+		  {
+			  motor_flag=WINDOW_OFF;
+			  motor_steps_count=0;
+		  }
+	  }
+	  if(motor_flag == WINDOW_DOWN)
+	  {
+		  MOTOR_DIR_DOWN;          //setting pinB 11  pin as 1 this is direction pin
+		  if(motor_steps_count <= 15)
+		  {
+			  Motor_Step();
+			  motor_steps_count++;
+		  }
+		  else
+		  {
+			  motor_flag=WINDOW_OFF;
+			  motor_steps_count=0;
+		  }
+	  }
+
+     */
+  }
+  /* USER CODE END window_light_ActuationMethod */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM1 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM1) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{ 
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
+
+/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
