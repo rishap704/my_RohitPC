@@ -1,0 +1,33 @@
+Memory regions, types and attributes
+The memory map and the programming of the optional MPU splits the memory map into regions. Each region has a defined memory type, and some regions have additional memory attributes. The memory type and attributes determine the behavior of accesses to the region.
+
+The memory types are:
+
+Normal
+The processor can re-order transactions for efficiency, or perform speculative reads.
+
+Device
+The processor preserves transaction order relative to other transactions to Device or Strongly-ordered memory.
+
+Strongly-ordered
+The processor preserves transaction order relative to all other transactions.
+
+The different ordering requirements for Device and Strongly-ordered memory mean that the memory system can buffer a write to Device memory, but must not buffer a write to Strongly-ordered memory.
+
+The additional memory attributes include:
+
+Shareable
+For a shareable memory region that is implemented, the memory system provides data synchronization between bus masters in a system with multiple bus masters, for example, a processor with a DMA controller.
+
+Strongly-ordered memory is always shareable.
+
+If multiple bus masters can access a non-shareable memory region, software must ensure data coherency between the bus masters.
+
+Note
+This attribute is relevant only if the device is likely to be used in systems where memory is shared between multiple processors.
+
+Execute Never (XN)
+Means the processor prevents instruction accesses. A fault exception is generated only on execution of an instruction executed from an XN region.
+
+Modes of operation and execution
+
